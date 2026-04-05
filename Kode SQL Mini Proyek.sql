@@ -143,6 +143,33 @@ JOIN coffee_transactions t
     ON m.member_name = t.member_name
 GROUP BY m.member_name;
 
+-- Perbaiki poin membership agar sesuai aturan 1%
+
+UPDATE coffee_membership_points m
+JOIN (
+    SELECT 
+        member_name,
+        FLOOR(SUM(total_bayar) * 0.01) AS poin_baru
+    FROM coffee_transactions
+    WHERE member_name IS NOT NULL AND member_name != ''
+    GROUP BY member_name
+) t
+ON m.member_name = t.member_name
+SET m.poin_didapat = t.poin_baru;
+
+-- Cek ulang setelah perbaikan
+
+SELECT 
+    m.member_name,
+    SUM(t.total_bayar) AS total_belanja,
+    m.poin_didapat AS poin_setelah_update,
+    FLOOR(SUM(t.total_bayar) * 0.01) AS poin_seharusnya,
+    m.poin_didapat - FLOOR(SUM(t.total_bayar) * 0.01) AS selisih
+FROM coffee_membership_points m
+JOIN coffee_transactions t 
+    ON m.member_name = t.member_name
+GROUP BY m.member_name, m.poin_didapat;
+
 -- Buat tampilan view
 
 CREATE OR REPLACE VIEW coffee_full_data AS
@@ -150,6 +177,10 @@ SELECT
     d.detail_id,
     d.transaction_id,
     t.member_name,
+     CASE 
+        WHEN t.member_name IS NULL OR TRIM(t.member_name) = '' THEN 'Non-Member'
+        ELSE 'Member'
+    END AS status_member,
     d.product_id,
     p.product_name,
     p.price,
