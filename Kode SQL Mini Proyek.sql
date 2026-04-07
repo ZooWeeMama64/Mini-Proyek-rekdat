@@ -1,22 +1,30 @@
 CREATE DATABASE coffee;
 USE coffee;
 
--- Validasi dan cleaning tabel customers
+-- data awal:
+SELECT * FROM coffee_customers;
+SELECT * FROM coffee_membership_points;
+SELECT * FROM coffee_price_list;
+SELECT * FROM coffee_transactions;
 
--- Cek member_flag tidak valid
-SELECT member_flag
-FROM coffee_customers
-WHERE member_flag NOT REGEXP '^(Yes|No|yes|no|y|n)$';
+-- 1.cleaning tabel customers
+SELECT * FROM coffee_customers
+WHERE member_flag NOT REGEXP 'Yes|No';
 
 -- Standarisasi member_flag
+SET SQL_SAFE_UPDATES = 0; 
+
 UPDATE coffee_customers
 SET member_flag = CASE 
-    WHEN LOWER(member_flag) IN ('yes', 'y') THEN 'Yes'
-    WHEN LOWER(member_flag) IN ('no', 'n') THEN 'No'
+    WHEN LOWER(member_flag) IN ('Y', 'y') THEN 'Yes'
+    WHEN LOWER(member_flag) IN ('N', 'n') THEN 'No'
     ELSE member_flag 
-END;
+END
+WHERE customer_id > 0;
 
--- Membuat tabel detail baru
+SET SQL_SAFE_UPDATES = 1;
+
+-- 2. MEMBUAT TABEL DETAIL TRANSAKSI
 
 CREATE TABLE coffee_transaction_details (
     detail_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -26,7 +34,6 @@ CREATE TABLE coffee_transaction_details (
 );
 
 -- Pisah items_text
-TRUNCATE TABLE coffee_transaction_details;
 
 INSERT INTO coffee_transaction_details (transaction_id, product_name, quantity)
 WITH RECURSIVE split_items AS (
@@ -69,6 +76,7 @@ FROM (
 GROUP BY transaction_id, product_name;
 
 -- Hapus tanda kutip
+SET SQL_SAFE_UPDATES = 0;
 UPDATE coffee_transaction_details
 SET product_name = TRIM(REPLACE(product_name, '"', ''));
 
@@ -95,13 +103,13 @@ UPDATE coffee_transaction_details SET product_name = 'espresso' WHERE product_na
 -- Periksa hasil
 SELECT *
 FROM coffee_transaction_details
-ORDER BY transaction_id ASC;
+ORDER BY detail_id ASC;
 
--- Tambahkan product_id
-
+-- Tambahkan product_id di COFFEE_PRICE_LIST
 ALTER TABLE coffee_price_list
 ADD COLUMN product_id INT AUTO_INCREMENT PRIMARY KEY;
 
+-- Tambahkan product_id di COFFEE_TRANSACTION TABLE
 ALTER TABLE coffee_transaction_details
 ADD COLUMN product_id INT;
 
@@ -193,3 +201,12 @@ JOIN coffee_transactions t
 JOIN coffee_price_list p 
     ON d.product_id = p.product_id
 ORDER BY transaction_id ASC;    
+
+SELECT * FROM coffee.coffee_full_data;
+
+DROP TABLE coffee_customers;
+DROP TABLE coffee_membership;
+DROP TABLE coffee_transactions;
+DROP TABLE coffee_price_list;
+DROP TABLE coffee_transaction_details;
+DROP TABLE coffee_membership_points;
