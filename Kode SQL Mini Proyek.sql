@@ -210,3 +210,51 @@ DROP TABLE coffee_transactions;
 DROP TABLE coffee_price_list;
 DROP TABLE coffee_transaction_details;
 DROP TABLE coffee_membership_points;
+
+
+-- JAWABAN PERTANYAAN
+-- 1. Produk apa yang paling sering terjual?
+SELECT product_name AS Produk, SUM(quantity) AS Total_Terjual
+FROM coffee_transaction_details
+GROUP BY product_name
+ORDER BY total_terjual DESC
+LIMIT 1;
+
+-- 2. Berapa total penjualan untuk setiap produk?
+SELECT td.product_name AS Produk, SUM(td.quantity) AS Total_Terjual, SUM(td.quantity * pl.price) AS Total_Penjualan
+FROM coffee_transaction_details AS td
+JOIN coffee_price_list AS pl ON td.product_id = pl.product_id
+GROUP BY td.product_name
+ORDER BY total_penjualan DESC;
+
+-- 3. Apakah terdapat selisih antara total pembayaran dan harga produk yang seharusnya?
+SELECT td.transaction_id, SUM(td.quantity * pl.price) AS Total_Penjualan, 
+		MAX(t.total_bayar) AS Total_Dibayar,
+		SUM(pl.price * td.quantity) - MAX(t.total_bayar) AS Selisih_Harga
+FROM coffee_transaction_details AS td       
+JOIN coffee_price_list AS pl ON td.product_id = pl.product_id
+JOIN coffee_transactions AS t ON td.transaction_id = t.transaction_id
+GROUP BY td.transaction_id
+HAVING Selisih_Harga != 0;      
+
+-- 4. Siapa pelanggan dengan kontribusi transaksi terbesar?
+SELECT
+	member_name AS Nama,
+    SUM(total_bayar) AS Total_Transaksi
+FROM coffee_transactions
+WHERE member_name IS NOT NULL AND member_name != ''
+GROUP BY member_name
+ORDER BY Total_Transaksi DESC
+LIMIT 1;    
+
+-- 5. Apakah poin membership yang tercatat sudah sesuai dengan aturan 1% dari transaksi?
+SELECT 
+    m.member_name AS Nama,
+    SUM(t.total_bayar) AS total_belanja,
+    m.poin_didapat,
+    FLOOR(SUM(t.total_bayar) * 0.01) AS poin_seharusnya,
+    m.poin_didapat - FLOOR(SUM(t.total_bayar) * 0.01) AS selisih
+FROM coffee_membership_points m
+JOIN coffee_transactions t 
+    ON m.member_name = t.member_name
+GROUP BY m.member_name, m.poin_didapat;
